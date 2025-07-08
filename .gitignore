@@ -1,0 +1,8 @@
+# Ignore Rust build artifacts
+/target
+
+# Ignore commitlint executable
+tools/commitlint*
+
+# Ignore playground directory
+playground/
