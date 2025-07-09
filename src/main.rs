@@ -1,8 +1,12 @@
+use tree_sitter::Parser;
 use tree_sitter_highlight::{HighlightConfiguration, Highlighter, HighlightEvent};
 use tree_sitter_c;
 
+/// Main entry point
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let source_code = r#"
+Normal text, dont color this.
+
 #include <stdio.h>
 
 // Comment
@@ -11,39 +15,93 @@ int main() {
     printf("Hello, world! %d\n", x);
     return 0;
 }
+
+Normal text again!
+
+// Small code
+printf("Hello, World!");
+
+End of mail
 "#;
+
+    let source_bytes = source_code.as_bytes();
+
+    let mut parser = Parser::new();
+    parser.set_language(&tree_sitter_c::LANGUAGE.into())?;
+    let tree = parser.parse(source_code, None).unwrap();
+    let root = tree.root_node();
 
     let mut config = HighlightConfiguration::new(
         tree_sitter_c::LANGUAGE.into(),
         "c",
         tree_sitter_c::HIGHLIGHT_QUERY,
         "",
-        tree_sitter_c::TAGS_QUERY
+        tree_sitter_c::TAGS_QUERY,
     )?;
-
     config.configure(&[
-        "function", "type", "string", "keyword", "number", "comment", "constant", "operator", "variable"
+        "function", "type", "string", "keyword", "number",
+        "comment", "constant", "operator", "variable",
     ]);
 
     let mut highlighter = Highlighter::new();
-    let highlight_events = highlighter.highlight(&config, source_code.as_bytes(), None, |_| None)?;
 
-    for event in highlight_events {
-        match event? {
-            HighlightEvent::Source { start, end } => {
-                print!("{}", &source_code[start..end]);
+    let valid_chunks = collect_non_error_chunks(root);
+    let mut last_end = 0;
+
+    for (start, end) in valid_chunks {
+        print!("{}", &source_code[last_end..start]);
+
+        let slice = &source_bytes[start..end];
+        let base = start;
+
+        let events = highlighter.highlight(&config, slice, None, |_| None)?;
+
+        for event in events {
+            match event? {
+                HighlightEvent::Source { start, end } => {
+                    print!("{}", std::str::from_utf8(&source_bytes[base + start..base + end])?);
+                }
+                HighlightEvent::HighlightStart(s) => {
+                    print!("{}", ansi_for_class(s.0));
+                }
+                HighlightEvent::HighlightEnd => {
+                    print!("\x1b[0m");
+                }
             }
-            HighlightEvent::HighlightStart(s) => {
-                print!("{}", ansi_for_class(s.0));
+        }
+
+        last_end = end;
+    }
+
+    print!("{}", &source_code[last_end..]);
+    println!();
+
+    Ok(())
+}
+
+/// Collect non-error chunks
+fn collect_non_error_chunks(root: tree_sitter::Node) -> Vec<(usize, usize)> {
+    let mut chunks = Vec::new();
+    let mut cursor = root.walk();
+    let mut current_start = None;
+
+    for child in root.children(&mut cursor) {
+        if child.kind() == "ERROR" {
+            if let Some(start) = current_start.take() {
+                chunks.push((start, child.start_byte()));
             }
-            HighlightEvent::HighlightEnd => {
-                print!("\x1b[0m");
+        } else {
+            if current_start.is_none() {
+                current_start = Some(child.start_byte());
             }
         }
     }
 
-    println!();
-    Ok(())
+    if let Some(start) = current_start {
+        chunks.push((start, root.end_byte()));
+    }
+
+    chunks
 }
 
 /// Convert highlight class ID to ANSI color
