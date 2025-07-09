@@ -6,6 +6,8 @@ use tree_sitter::Parser;
 use tree_sitter_highlight::{HighlightConfiguration, Highlighter, HighlightEvent};
 use tree_sitter_c;
 
+mod debug;
+
 /// Main entry point
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let source_code = if let Some(path) = env::args().nth(1) {
@@ -21,6 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     parser.set_language(&tree_sitter_c::LANGUAGE.into())?;
     let tree = parser.parse(&source_code, None).unwrap();
     let root = tree.root_node();
+    debug::dump_tree(root, &source_code);
 
     let mut config = HighlightConfiguration::new(
         tree_sitter_c::LANGUAGE.into(),
