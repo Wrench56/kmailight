@@ -77,14 +77,15 @@ fn collect_non_error_chunks(root: tree_sitter::Node) -> Vec<(usize, usize)> {
     let mut current_start = None;
 
     for child in root.children(&mut cursor) {
-        if child.kind() == "ERROR" {
+        if is_declaration_without_semicolon(child) {
             if let Some(start) = current_start.take() {
                 chunks.push((start, child.start_byte()));
             }
-        } else {
-            if current_start.is_none() {
-                current_start = Some(child.start_byte());
-            }
+            continue;
+        }
+
+        if current_start.is_none() {
+            current_start = Some(child.start_byte());
         }
     }
 
@@ -93,6 +94,22 @@ fn collect_non_error_chunks(root: tree_sitter::Node) -> Vec<(usize, usize)> {
     }
 
     chunks
+}
+
+/// Check if a parent node is closed by a semicolon
+fn is_declaration_without_semicolon(node: tree_sitter::Node) -> bool {
+    if node.kind() == ";" && !node.is_missing() {
+            return false;
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if !is_declaration_without_semicolon(child) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 /// Convert highlight class ID to ANSI color
