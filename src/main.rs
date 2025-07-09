@@ -1,34 +1,25 @@
+use std::env;
+use std::fs;
+use std::io::{self, Read};
+
 use tree_sitter::Parser;
 use tree_sitter_highlight::{HighlightConfiguration, Highlighter, HighlightEvent};
 use tree_sitter_c;
 
 /// Main entry point
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let source_code = r#"
-Normal text, dont color this.
-
-#include <stdio.h>
-
-// Comment
-int main() {
-    int x = 42;
-    printf("Hello, world! %d\n", x);
-    return 0;
-}
-
-Normal text again!
-
-// Small code
-printf("Hello, World!");
-
-End of mail
-"#;
-
+    let source_code = if let Some(path) = env::args().nth(1) {
+        fs::read_to_string(path)?
+    } else {
+        let mut buf = String::new();
+        io::stdin().read_to_string(&mut buf)?;
+        buf
+    };
     let source_bytes = source_code.as_bytes();
 
     let mut parser = Parser::new();
     parser.set_language(&tree_sitter_c::LANGUAGE.into())?;
-    let tree = parser.parse(source_code, None).unwrap();
+    let tree = parser.parse(&source_code, None).unwrap();
     let root = tree.root_node();
 
     let mut config = HighlightConfiguration::new(
