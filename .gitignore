@@ -6,3 +6,6 @@ tools/commitlint*
 
 # Ignore playground directory
 playground/
+
+# Ignore test files
+test*
