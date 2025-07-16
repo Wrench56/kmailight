@@ -40,6 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut highlighter = Highlighter::new();
 
     let valid_chunks = collect_non_error_chunks(root);
+    debug::print_chunks(&valid_chunks, &source_code);
     let mut last_end = 0;
 
     for (start, end) in valid_chunks {
