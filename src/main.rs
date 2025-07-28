@@ -6,7 +6,9 @@ use tree_sitter::Parser;
 use tree_sitter_highlight::{HighlightConfiguration, Highlighter, HighlightEvent};
 use tree_sitter_c;
 
+mod chunk_collector;
 mod debug;
+mod heuristics;
 
 /// Main entry point
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -17,6 +19,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         io::stdin().read_to_string(&mut buf)?;
         buf
     };
+    
     let source_bytes = source_code.as_bytes();
 
     let mut parser = Parser::new();
@@ -39,7 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut highlighter = Highlighter::new();
 
-    let valid_chunks = collect_non_error_chunks(root);
+    let valid_chunks = chunk_collector::ChunkCollector::collect(root, &source_code);
     debug::print_chunks(&valid_chunks, &source_code);
     let mut last_end = 0;
 
@@ -72,48 +75,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     Ok(())
-}
-
-/// Collect non-error chunks
-fn collect_non_error_chunks(root: tree_sitter::Node) -> Vec<(usize, usize)> {
-    let mut chunks = Vec::new();
-    let mut cursor = root.walk();
-    let mut current_start = None;
-
-    for child in root.children(&mut cursor) {
-        if is_declaration_without_semicolon(child) {
-            if let Some(start) = current_start.take() {
-                chunks.push((start, child.start_byte()));
-            }
-            continue;
-        }
-
-        if current_start.is_none() {
-            current_start = Some(child.start_byte());
-        }
-    }
-
-    if let Some(start) = current_start {
-        chunks.push((start, root.end_byte()));
-    }
-
-    chunks
-}
-
-/// Check if a parent node is closed by a semicolon
-fn is_declaration_without_semicolon(node: tree_sitter::Node) -> bool {
-    if node.kind() == ";" && !node.is_missing() {
-            return false;
-    }
-
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
-        if !is_declaration_without_semicolon(child) {
-            return false;
-        }
-    }
-
-    return true;
 }
 
 /// Convert highlight class ID to ANSI color
