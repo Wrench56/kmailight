@@ -2,9 +2,8 @@ use std::env;
 use std::fs;
 use std::io::{self, Read};
 
-use tree_sitter_highlight::HighlightConfiguration;
-
 mod debug;
+mod highlighter;
 mod line;
 
 use crate::line::Line;
@@ -18,18 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         buf
     };
 
-    let mut config = HighlightConfiguration::new(
-        tree_sitter_c::LANGUAGE.into(),
-        "c",
-        tree_sitter_c::HIGHLIGHT_QUERY,
-        "",
-        tree_sitter_c::TAGS_QUERY,
-    )?;
-
-    config.configure(&[
-        "function", "type", "string", "keyword", "number", "comment", "constant", "operator",
-        "variable",
-    ]);
+    let mut highlighter = highlighter::HighlighterEngine::new();
 
     let lines = Line::parse_lines(&source_code);
     debug::print_lines(&lines);
