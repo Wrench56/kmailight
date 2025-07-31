@@ -25,6 +25,7 @@ rules:
       - core
       - debug
       - parser
+      - highlighter
   subject-empty:
     level: error
   type:
