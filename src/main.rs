@@ -2,15 +2,13 @@ use std::env;
 use std::fs;
 use std::io::{self, Read};
 
-use tree_sitter::Parser;
-use tree_sitter_highlight::{HighlightConfiguration, Highlighter, HighlightEvent};
-use tree_sitter_c;
+use tree_sitter_highlight::HighlightConfiguration;
 
-mod chunk_collector;
 mod debug;
-mod heuristics;
+mod line;
 
-/// Main entry point
+use crate::line::Line;
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let source_code = if let Some(path) = env::args().nth(1) {
         fs::read_to_string(path)?
@@ -19,14 +17,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         io::stdin().read_to_string(&mut buf)?;
         buf
     };
-    
-    let source_bytes = source_code.as_bytes();
-
-    let mut parser = Parser::new();
-    parser.set_language(&tree_sitter_c::LANGUAGE.into())?;
-    let tree = parser.parse(&source_code, None).unwrap();
-    let root = tree.root_node();
-    debug::dump_tree(root, &source_code);
 
     let mut config = HighlightConfiguration::new(
         tree_sitter_c::LANGUAGE.into(),
@@ -35,60 +25,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "",
         tree_sitter_c::TAGS_QUERY,
     )?;
+
     config.configure(&[
-        "function", "type", "string", "keyword", "number",
-        "comment", "constant", "operator", "variable",
+        "function", "type", "string", "keyword", "number", "comment", "constant", "operator",
+        "variable",
     ]);
 
-    let mut highlighter = Highlighter::new();
+    let lines = Line::parse_lines(&source_code);
+    debug::print_lines(&lines);
 
-    let valid_chunks = chunk_collector::ChunkCollector::collect(root, &source_code);
-    debug::print_chunks(&valid_chunks, &source_code);
-    let mut last_end = 0;
-
-    for (start, end) in valid_chunks {
-        print!("{}", &source_code[last_end..start]);
-
-        let slice = &source_bytes[start..end];
-        let base = start;
-
-        let events = highlighter.highlight(&config, slice, None, |_| None)?;
-
-        for event in events {
-            match event? {
-                HighlightEvent::Source { start, end } => {
-                    print!("{}", std::str::from_utf8(&source_bytes[base + start..base + end])?);
-                }
-                HighlightEvent::HighlightStart(s) => {
-                    print!("{}", ansi_for_class(s.0));
-                }
-                HighlightEvent::HighlightEnd => {
-                    print!("\x1b[0m");
-                }
-            }
-        }
-
-        last_end = end;
-    }
-
-    print!("{}", &source_code[last_end..]);
     println!();
-
     Ok(())
-}
-
-/// Convert highlight class ID to ANSI color
-fn ansi_for_class(class: usize) -> &'static str {
-    match class {
-        0 => "\x1b[1;34m", // function
-        1 => "\x1b[1;36m", // type
-        2 => "\x1b[0;32m", // string
-        3 => "\x1b[1;35m", // keyword
-        4 => "\x1b[0;36m", // number
-        5 => "\x1b[0;90m", // comment
-        6 => "\x1b[1;33m", // constant
-        7 => "\x1b[1;31m", // operator
-        8 => "\x1b[0m",    // default
-        _ => "\x1b[0m",
-    }
 }
