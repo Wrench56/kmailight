@@ -2,11 +2,12 @@ use std::env;
 use std::fs;
 use std::io::{self, Read};
 
+use crate::parser::line::Line;
+
 mod debug;
 mod highlighter;
-mod line;
 
-use crate::line::Line;
+mod parser;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let source_code = if let Some(path) = env::args().nth(1) {

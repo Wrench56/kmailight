@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 #[cfg(debug_assertions)]
-use crate::line::Line;
+use crate::parser::line::Line;
 
 #[cfg(debug_assertions)]
 /// Dump the tree for debugging
