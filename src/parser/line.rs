@@ -181,6 +181,7 @@ impl Line<'_> {
         lines
     }
 
+    /// Get the raw line text
     pub fn get_raw(&self) -> &str {
         match self {
             Line::Text { raw, .. } => raw,
@@ -189,6 +190,23 @@ impl Line<'_> {
             Line::HunkHeader { raw, .. } => raw,
             Line::Code { raw, .. } => raw,
         }
+    }
+
+    /// Get the quoting layer of the line
+    pub fn get_quoting_layer(&self) -> usize {
+        match self {
+            Line::Text { quoting_layer, .. }
+            | Line::DiffHeader { quoting_layer, .. }
+            | Line::DiffMetadata { quoting_layer, .. }
+            | Line::HunkHeader { quoting_layer, .. }
+            | Line::Code { quoting_layer, .. } => *quoting_layer,
+        }
+    }
+
+    /// Check if two lines belong to the same quoting layer
+    #[inline]
+    pub fn same_quoting_layer(&self, other: &Self) -> bool {
+        self.get_quoting_layer() == other.get_quoting_layer()
     }
 }
 
