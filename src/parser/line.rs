@@ -5,6 +5,35 @@ pub enum CodeKind {
     Context,
 }
 
+/// An enum representing the state of the parser
+///
+/// `Text` progresses into `Diff` when a diff header is found,
+/// `Diff` progresses into `Hunk` when a hunk header is found,
+/// and `Hunk` progresses into `Code` right after the hunk header line.
+/// `Diff` state also includes the diff metadata lines.
+/// When in `Code` state, it checks for hunk headers again, which will reset the state to `Hunk`.
+/// Currently, there are no other ways to break out of the `Code` state.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum State {
+    Text,
+    Diff,
+    Hunk,
+    Code,
+}
+
+/// Maintains parsing state for a specific quoting layer
+///
+/// The parser tracks multiple quoting layers in parallel because
+/// context lines, inline comments, nested quoted diffs, etc. can appear
+/// interleaved in email patches. Each quoting layer has its own
+/// independent state machine so that each layer state is independent
+/// of the others.
+struct LayerState {
+    state: State,
+    file_path: String,
+    language: String,
+}
+
 #[derive(Debug, Clone)]
 pub enum Line<'a> {
     Text {
@@ -55,100 +84,91 @@ impl Line<'_> {
     /// The `kind` field in `Code` lines indicates whether the line is an addition (`+`), a removal (`-`), or context (no sign)
     /// based on the diff format.
     pub fn parse_lines(source: &str) -> Vec<Line> {
-        /// An enum representing the state of the parser
-        ///
-        /// `Text` progresses into `Diff` when a diff header is found,
-        /// `Diff` progresses into `Hunk` when a hunk header is found,
-        /// and `Hunk` progresses into `Code` right after the hunk header line.
-        /// `Diff` state also includes the diff metadata lines.
-        /// When in `Code` state, it checks for hunk headers again, which will reset the state to `Hunk`.
-        /// Currently, there are no other ways to break out of the `Code` state.
-        #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-        enum State {
-            Text,
-            Diff,
-            Hunk,
-            Code,
-        }
-
         let mut lines = Vec::new();
         let mut offset = 0usize;
-        let mut state = State::Text;
 
-        let mut current_file = String::new();
-        let mut current_lang = String::from("Unknown");
+        let mut layers: Vec<Option<LayerState>> = Vec::new();
 
         for raw in source.lines() {
             let len = raw.len() + 1;
-            let quoting_layer = quoting_layer(raw);
+            let ql = quoting_layer(raw);
             let line = raw.trim_start_matches('>');
             let trimmed = line.trim_start();
 
-            match state {
+            /* Dynamically resize layers vector for infinite quoting layers */
+            if ql >= layers.len() {
+                layers.resize_with(ql + 1, || None);
+            }
+
+            // Get or init this layer’s state
+            let entry = layers[ql].get_or_insert_with(|| LayerState {
+                state: State::Text,
+                file_path: String::new(),
+                language: "Unknown".to_string(),
+            });
+
+            match entry.state {
                 State::Text => {
                     if trimmed.starts_with("diff --git") {
-                        state = State::Diff;
-                        current_file = extract_file_path(trimmed);
-                        current_lang = detect_language(&current_file);
-
+                        entry.state = State::Diff;
+                        entry.file_path = extract_file_path(trimmed);
+                        entry.language = detect_language(&entry.file_path);
                         lines.push(Line::DiffHeader {
                             offset,
                             length: len,
-                            quoting_layer,
-                            file_path: current_file.clone(),
+                            quoting_layer: ql,
+                            file_path: entry.file_path.clone(),
                             raw,
                         });
                     } else {
                         lines.push(Line::Text {
                             offset,
                             length: len,
-                            quoting_layer,
+                            quoting_layer: ql,
                             raw,
                         });
                     }
                 }
-
                 State::Diff => {
                     if trimmed.starts_with("@@") {
-                        state = State::Hunk;
+                        entry.state = State::Hunk;
                         lines.push(Line::HunkHeader {
                             offset,
                             length: len,
-                            quoting_layer,
-                            file_path: current_file.clone(),
-                            language: current_lang.clone(),
+                            quoting_layer: ql,
+                            file_path: entry.file_path.clone(),
+                            language: entry.language.clone(),
                             raw,
                         });
                     } else {
                         lines.push(Line::DiffMetadata {
                             offset,
                             length: len,
-                            quoting_layer,
+                            quoting_layer: ql,
                             raw,
                         });
                     }
                 }
-
                 State::Hunk | State::Code => {
                     if trimmed.starts_with("@@") {
-                        state = State::Hunk;
+                        entry.state = State::Hunk;
                         lines.push(Line::HunkHeader {
                             offset,
                             length: len,
-                            quoting_layer,
-                            file_path: current_file.clone(),
-                            language: current_lang.clone(),
+                            quoting_layer: ql,
+                            file_path: entry.file_path.clone(),
+                            language: entry.language.clone(),
                             raw,
                         });
                     } else {
-                        state = State::Code;
+                        entry.state = State::Code;
                         lines.push(Line::Code {
                             offset,
                             length: len,
-                            quoting_layer,
+                            quoting_layer: ql,
                             kind: match_code_kind(trimmed).unwrap(),
-                            file_path: current_file.clone(),
-                            language: current_lang.clone(),
+                            file_path: entry.file_path.clone(),
+                            language: entry.language.clone(),
                             raw,
                         });
                     }
