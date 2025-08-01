@@ -56,7 +56,7 @@ impl Line<'_> {
     /// based on the diff format.
     pub fn parse_lines(source: &str) -> Vec<Line> {
         /// An enum representing the state of the parser
-        /// 
+        ///
         /// `Text` progresses into `Diff` when a diff header is found,
         /// `Diff` progresses into `Hunk` when a hunk header is found,
         /// and `Hunk` progresses into `Code` right after the hunk header line.
@@ -159,6 +159,16 @@ impl Line<'_> {
         }
 
         lines
+    }
+
+    pub fn get_raw(&self) -> &str {
+        match self {
+            Line::Text { raw, .. } => raw,
+            Line::DiffHeader { raw, .. } => raw,
+            Line::DiffMetadata { raw, .. } => raw,
+            Line::HunkHeader { raw, .. } => raw,
+            Line::Code { raw, .. } => raw,
+        }
     }
 }
 
