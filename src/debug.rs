@@ -2,6 +2,7 @@
 
 #[cfg(debug_assertions)]
 use crate::parser::line::Line;
+use crate::parser::span::Span;
 
 #[cfg(debug_assertions)]
 /// Dump the tree for debugging
@@ -196,6 +197,96 @@ pub fn print_lines(lines: &[Line]) {
     }
 }
 
+#[cfg(debug_assertions)]
+pub fn print_spans<'a>(spans: &[Span<'a>]) {
+    const RESET: &str = "\x1b[0m";
+    const CYAN: &str = "\x1b[1;36m";
+    const YELLOW: &str = "\x1b[1;33m";
+    const GREEN: &str = "\x1b[1;32m";
+    const MAGENTA: &str = "\x1b[1;35m";
+
+    fn join_span_lines<'a>(span: &Span<'a>) -> String {
+        match span {
+            Span::Text { lines, .. }
+            | Span::DiffHeader { lines, .. }
+            | Span::DiffMetadata { lines, .. }
+            | Span::HunkHeader { lines, .. }
+            | Span::Code { lines, .. } => lines
+                .iter()
+                .map(|l| l.get_raw())
+                .collect::<Vec<_>>()
+                .join("\n"),
+        }
+    }
+
+    println!("\n{:=^172}", " Spans ");
+
+    for (i, span) in spans.iter().enumerate() {
+        let (start, end, q, label, color) = match span {
+            Span::Text {
+                start,
+                end,
+                quoting_layer,
+                ..
+            } => (*start, *end, *quoting_layer, "TEXT", CYAN),
+            Span::DiffHeader {
+                start,
+                end,
+                quoting_layer,
+                ..
+            } => (*start, *end, *quoting_layer, "DIFF", MAGENTA),
+            Span::DiffMetadata {
+                start,
+                end,
+                quoting_layer,
+                ..
+            } => (*start, *end, *quoting_layer, "META", MAGENTA),
+            Span::HunkHeader {
+                start,
+                end,
+                quoting_layer,
+                ..
+            } => (*start, *end, *quoting_layer, "HUNK", YELLOW),
+            Span::Code {
+                start,
+                end,
+                quoting_layer,
+                ..
+            } => (*start, *end, *quoting_layer, "CODE", GREEN),
+        };
+
+        let raw = join_span_lines(span);
+        let mut lines = raw.lines();
+
+        let len = end - start;
+        let prefix = format!(
+            " {idx:>3}. [{start:>5},{end:<5}] len={len:<5} q={q:<2} {color}{label:<6}{RESET}  ",
+            idx = i + 1,
+            start = start,
+            end = end - 1,
+            len = len,
+            q = q,
+            label = label,
+            color = color
+        );
+
+        if let Some(first_line) = lines.next() {
+            print!("{prefix}");
+            println!("{first_line}");
+
+            let indent_width = prefix.chars().count() - RESET.len() - color.len();
+            let code_offset = first_line.chars().take_while(|c| c.is_whitespace()).count();
+            let indent = " ".repeat(indent_width + code_offset);
+
+            for line in lines {
+                println!("{indent}{line}");
+            }
+        }
+    }
+
+    println!("{:=^172}\n", "");
+}
+
 #[cfg(not(debug_assertions))]
 #[inline(always)]
 /// No-op for release builds
@@ -210,3 +301,8 @@ pub fn print_chunks(_: &[(usize, usize)], _: &str) {}
 #[inline(always)]
 /// No-op for release builds
 pub fn print_lines(_: &Vec<Line>) {}
+
+#[cfg(not(debug_assertions))]
+#[inline(always)]
+/// No-op for release builds
+pub fn print_spans(_: &Vec<Span>) {}
