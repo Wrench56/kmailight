@@ -100,7 +100,6 @@ impl Line<'_> {
                 layers.resize_with(ql + 1, || None);
             }
 
-            // Get or init this layer’s state
             let entry = layers[ql].get_or_insert_with(|| LayerState {
                 state: State::Text,
                 file_path: String::new(),
@@ -207,6 +206,19 @@ impl Line<'_> {
     #[inline]
     pub fn same_quoting_layer(&self, other: &Self) -> bool {
         self.get_quoting_layer() == other.get_quoting_layer()
+    }
+
+    /// Check if two lines belong to the same kind (e.g.: Text, DiffHeader, Code, etc.)
+    pub fn same_variant(&self, other: &Self) -> bool {
+        use Line::*;
+        matches!(
+            (self, other),
+            (Text { .. }, Text { .. })
+                | (DiffHeader { .. }, DiffHeader { .. })
+                | (DiffMetadata { .. }, DiffMetadata { .. })
+                | (HunkHeader { .. }, HunkHeader { .. })
+                | (Code { .. }, Code { .. })
+        )
     }
 }
 
