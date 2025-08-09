@@ -202,6 +202,17 @@ impl Line<'_> {
         }
     }
 
+    /// Get the end offset of the content
+    pub fn get_end_offset(&self) -> usize {
+        match self {
+            Line::Text { offset, length, .. } => offset + length - 1,
+            Line::DiffHeader { offset, length, .. } => offset + length - 1,
+            Line::DiffMetadata { offset, length, .. } => offset + length - 1,
+            Line::HunkHeader { offset, length, .. } => offset + length - 1,
+            Line::Code { offset, length, .. } => offset + length - 1,
+        }
+    }
+
     /// Check if two lines belong to the same quoting layer
     #[inline]
     pub fn same_quoting_layer(&self, other: &Self) -> bool {
