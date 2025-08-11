@@ -50,37 +50,54 @@ pub fn build_spans<'a>(lines: &'a [Line<'a>]) -> Vec<Span<'a>> {
             || !lines[start_idx].same_variant(&lines[i])
         {
             let span = match &lines[start_idx] {
-                Line::Text { quoting_layer, .. } => Span::Text {
-                    start: start_idx,
-                    end: i,
+                Line::Text {
+                    offset,
+                    quoting_layer,
+                    ..
+                } => Span::Text {
+                    start: *offset,
+                    end: lines[i - 1].get_end_offset(),
                     quoting_layer: *quoting_layer,
                     lines: &lines[start_idx..i],
                 },
-                Line::DiffHeader { quoting_layer, .. } => Span::DiffHeader {
-                    start: start_idx,
-                    end: i,
+                Line::DiffHeader {
+                    offset,
+                    quoting_layer,
+                    ..
+                } => Span::DiffHeader {
+                    start: *offset,
+                    end: lines[i - 1].get_end_offset(),
                     quoting_layer: *quoting_layer,
                     lines: &lines[start_idx..i],
                 },
-                Line::DiffMetadata { quoting_layer, .. } => Span::DiffMetadata {
-                    start: start_idx,
-                    end: i,
+                Line::DiffMetadata {
+                    offset,
+                    quoting_layer,
+                    ..
+                } => Span::DiffMetadata {
+                    start: *offset,
+                    end: lines[i - 1].get_end_offset(),
                     quoting_layer: *quoting_layer,
                     lines: &lines[start_idx..i],
                 },
-                Line::HunkHeader { quoting_layer, .. } => Span::HunkHeader {
-                    start: start_idx,
-                    end: i,
+                Line::HunkHeader {
+                    offset,
+                    quoting_layer,
+                    ..
+                } => Span::HunkHeader {
+                    start: *offset,
+                    end: lines[i - 1].get_end_offset(),
                     quoting_layer: *quoting_layer,
                     lines: &lines[start_idx..i],
                 },
                 Line::Code {
+                    offset,
                     quoting_layer,
                     kind,
                     ..
                 } => Span::Code {
-                    start: start_idx,
-                    end: i,
+                    start: *offset,
+                    end: lines[i - 1].get_end_offset(),
                     quoting_layer: *quoting_layer,
                     kind: kind.clone(),
                     lines: &lines[start_idx..i],
