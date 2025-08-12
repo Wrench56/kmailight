@@ -18,10 +18,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         buf
     };
 
-    let mut highlighter = highlighter::HighlighterEngine::new();
+    let highlighter = highlighter::HighlighterEngine::new();
 
     let lines = Line::parse_lines(&source_code);
     debug::print_lines(&lines);
+
+    let spans = parser::span::build_spans(&lines);
+    debug::print_spans(&spans);
 
     println!();
     Ok(())
