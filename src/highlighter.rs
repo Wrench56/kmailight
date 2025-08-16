@@ -30,7 +30,8 @@ impl HighlighterEngine {
         }
     }
 
-    pub fn highlight(&mut self, lang: &str, code: &str) -> String {
+    /// Highlight an individual hunk of code
+    pub fn highlight_code(&mut self, lang: &str, code: &str) -> String {
         let Some(config) = self.configs.get(lang) else {
             return code.to_string();
         };
