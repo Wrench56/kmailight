@@ -64,6 +64,8 @@ impl HighlighterEngine {
         const BLUE: &str = "\x1b[34m";
         const RESET: &str = "\x1b[0m";
 
+        /// Paint only the quote marks at the beginning of the quoted lines
+        #[cfg(not(feature = "quote-paint-full"))]
         fn paint_line(line: &str) -> String {
             let mut out = String::with_capacity(line.len() + 8);
             let mut started = false;
@@ -87,6 +89,33 @@ impl HighlighterEngine {
                     started = true;
                 }
             }
+            out
+        }
+
+        /// Paint the full quoted lines
+        #[cfg(feature = "quote-paint-full")]
+        fn paint_line(line: &str) -> String {
+            const BLUE: &str = "\x1b[34m";
+            const RESET: &str = "\x1b[0m";
+
+            let bytes = line.as_bytes();
+            let mut i = 0;
+            while i < bytes.len() && (bytes[i] == b' ' || bytes[i] == b'\t') {
+                i += 1;
+            }
+            let mut j = i;
+            while j < bytes.len() && bytes[j] == b'>' {
+                j += 1;
+            }
+
+            if j == i {
+                return line.to_string();
+            }
+
+            let mut out = String::with_capacity(line.len() + BLUE.len() + RESET.len());
+            out.push_str(BLUE);
+            out.push_str(line);
+            out.push_str(RESET);
             out
         }
 
