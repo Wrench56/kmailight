@@ -56,6 +56,48 @@ impl HighlighterEngine {
         }
         output
     }
+
+    /// Highlight an individual hunk of text
+    ///
+    /// The only thing highlighted for now are the quoting marks (">")
+    pub fn highlight_text(&mut self, text: &str) -> String {
+        const BLUE: &str = "\x1b[34m";
+        const RESET: &str = "\x1b[0m";
+
+        fn paint_line(line: &str) -> String {
+            let mut out = String::with_capacity(line.len() + 8);
+            let mut started = false;
+
+            for (idx, ch) in line.char_indices() {
+                match ch {
+                    ' ' | '\t' if !started => {
+                        out.push(ch);
+                    }
+                    '>' if !started => {
+                        out.push_str(BLUE);
+                        out.push('>');
+                        out.push_str(RESET);
+                    }
+                    _ => {
+                        out.push_str(&line[idx..]);
+                        return out;
+                    }
+                }
+                if ch != ' ' && ch != '\t' {
+                    started = true;
+                }
+            }
+            out
+        }
+
+        let ends_with_nl = text.ends_with('\n');
+        let mut result = text.lines().map(paint_line).collect::<Vec<_>>().join("\n");
+
+        if ends_with_nl {
+            result.push('\n');
+        }
+        result
+    }
 }
 
 /// Convert highlight class ID to ANSI color
