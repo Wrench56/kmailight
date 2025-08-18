@@ -143,6 +143,11 @@ impl HighlighterEngine {
     pub fn highlight_diffm(&mut self, diffm: &str) -> String {
         self.highlight_quoting_marks(diffm)
     }
+
+    /// Highlight a hunk header
+    pub fn highlight_hunkh(&mut self, hunkh: &str) -> String {
+        self.highlight_quoting_marks(hunkh)
+    }
 }
 
 /// Convert highlight class ID to ANSI color
