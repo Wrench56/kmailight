@@ -58,10 +58,8 @@ impl HighlighterEngine {
         output
     }
 
-    /// Highlight an individual hunk of text
-    ///
-    /// The only thing highlighted for now are the quoting marks (">")
-    pub fn highlight_text(&mut self, text: &str) -> String {
+    /// Helper function to highlight quoting marks
+    fn highlight_quoting_marks(&mut self, text: &str) -> String {
         const BLUE: &str = "\x1b[34m";
         const RESET: &str = "\x1b[0m";
 
@@ -127,6 +125,23 @@ impl HighlighterEngine {
             result.push('\n');
         }
         result
+    }
+
+    /// Highlight an individual hunk of text
+    ///
+    /// The only thing highlighted for now are the quoting marks (">")
+    pub fn highlight_text(&mut self, text: &str) -> String {
+        self.highlight_quoting_marks(text)
+    }
+
+    /// Highlight a diffheader
+    pub fn highlight_diffh(&mut self, diffh: &str) -> String {
+        self.highlight_quoting_marks(diffh)
+    }
+
+    /// Highlight an individual hunk of text
+    pub fn highlight_diffm(&mut self, diffm: &str) -> String {
+        self.highlight_quoting_marks(diffm)
     }
 }
 
