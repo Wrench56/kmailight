@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 
-#[cfg(debug_assertions)]
 use crate::parser::line::Line;
 use crate::parser::span::Span;
 
